@@ -56,8 +56,8 @@ const API_ACTIVE_PROFILE_KEY = "novelStudio.activeApiProfile.v1";
 const DEFAULT_API_PROFILES = Object.freeze({
   api1: {
     name: "API1",
-    apiKey: "sk-9420145a8b60681212d75253fd4cf65b5c73d074be71f0075d34784c624b65bd",
-    baseUrl: "https://sub2api.luciferai.cc",
+    apiKey: "sk-fj0UNBKOjmPvA0EpVoFCTUfsiV1MLKkhMjgzX1eeW3hCvKc7",
+    baseUrl: "https://www.openclaudecode.cn/v1",
     model: "gpt-5.4"
   },
   api2: {
