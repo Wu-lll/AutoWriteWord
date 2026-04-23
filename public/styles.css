@@ -159,6 +159,23 @@ p {
   gap: 14px;
 }
 
+.profile-row {
+  display: flex;
+  gap: 12px;
+  align-items: end;
+  flex-wrap: wrap;
+  margin-top: 12px;
+}
+
+.profile-row label {
+  flex: 1;
+  min-width: 220px;
+}
+
+.profile-row .ghost-button {
+  align-self: end;
+}
+
 .config-grid {
   grid-template-columns: 1fr;
   margin-top: 12px;

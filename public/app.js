@@ -17,6 +17,9 @@ const exportHtmlButton = document.getElementById("export-html-button");
 const exportPdfButton = document.getElementById("export-pdf-button");
 const exportMdButton = document.getElementById("export-md-button");
 const exportTxtButton = document.getElementById("export-txt-button");
+const profileSelect = document.getElementById("profile-select");
+const profileHint = document.getElementById("profile-hint");
+const resetProfileButton = document.getElementById("reset-profile-button");
 const tabs = document.querySelectorAll(".tab");
 const panels = document.querySelectorAll(".tab-panel");
 
@@ -52,8 +55,141 @@ const readingFonts = {
   kai: '"KaiTi", "STKaiti", serif'
 };
 
+const API_PROFILE_STORAGE_KEY = "novelStudio.apiProfiles.v1";
+const API_ACTIVE_PROFILE_KEY = "novelStudio.activeApiProfile.v1";
+const DEFAULT_API_PROFILES = Object.freeze({
+  api1: {
+    name: "API1",
+    apiKey: "sk-9420145a8b60681212d75253fd4cf65b5c73d074be71f0075d34784c624b65bd",
+    baseUrl: "https://sub2api.luciferai.cc",
+    model: "gpt-5.4"
+  },
+  api2: {
+    name: "API2",
+    apiKey: "sk-ao9wkbdIc5WQkMexHTM5GGe5Tldtk5IimwdSvnDhInE1jrIV",
+    baseUrl: "https://ai.121628.xyz/v1",
+    model: "glm-5.1"
+  },
+  api3: {
+    name: "API3",
+    apiKey: "sk-0WwLgeNqrobDwcdVkUPEmueII6AYl5dgvUFNAUgnRBk0fhdE",
+    baseUrl: "https://quqiai.top/v1",
+    model: "gpt-5.4"
+  }
+});
+
+let apiProfiles = null;
+let activeApiProfile = "api1";
+
 if (query.get("mobile") === "1") {
   document.documentElement.classList.add("mobile-entry");
+}
+
+function cloneProfile(profile) {
+  return {
+    name: profile?.name || "",
+    apiKey: profile?.apiKey || "",
+    baseUrl: profile?.baseUrl || "",
+    model: profile?.model || ""
+  };
+}
+
+function loadApiProfiles() {
+  const merged = {};
+  for (const [id, profile] of Object.entries(DEFAULT_API_PROFILES)) {
+    merged[id] = cloneProfile(profile);
+  }
+
+  try {
+    const raw = localStorage.getItem(API_PROFILE_STORAGE_KEY);
+    if (!raw) return merged;
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== "object") return merged;
+
+    for (const id of Object.keys(DEFAULT_API_PROFILES)) {
+      if (!parsed[id] || typeof parsed[id] !== "object") continue;
+      merged[id] = {
+        ...merged[id],
+        ...cloneProfile(parsed[id]),
+        name: merged[id].name
+      };
+    }
+  } catch (error) {
+    // ignore storage parse issues
+  }
+
+  return merged;
+}
+
+function saveApiProfiles() {
+  try {
+    localStorage.setItem(API_PROFILE_STORAGE_KEY, JSON.stringify(apiProfiles));
+  } catch (error) {
+    // ignore storage failures
+  }
+}
+
+function loadActiveProfile() {
+  try {
+    const stored = localStorage.getItem(API_ACTIVE_PROFILE_KEY);
+    if (stored && DEFAULT_API_PROFILES[stored]) {
+      return stored;
+    }
+  } catch (error) {
+    // ignore storage failures
+  }
+  return "api1";
+}
+
+function saveActiveProfile() {
+  try {
+    localStorage.setItem(API_ACTIVE_PROFILE_KEY, activeApiProfile);
+  } catch (error) {
+    // ignore storage failures
+  }
+}
+
+function applyProfileToForm(profileId) {
+  const profile = apiProfiles?.[profileId];
+  if (!profile) return;
+  if (fields.apiKey) fields.apiKey.value = profile.apiKey || "";
+  if (fields.baseUrl) fields.baseUrl.value = profile.baseUrl || "";
+  if (fields.model) fields.model.value = profile.model || "";
+}
+
+function persistCurrentApiFields() {
+  if (!apiProfiles?.[activeApiProfile]) return;
+  apiProfiles[activeApiProfile] = {
+    ...apiProfiles[activeApiProfile],
+    apiKey: fields.apiKey?.value || "",
+    baseUrl: fields.baseUrl?.value || "",
+    model: fields.model?.value || ""
+  };
+  saveApiProfiles();
+  refreshProfileHint();
+}
+
+function refreshProfileHint() {
+  if (!profileHint) return;
+  const profile = apiProfiles?.[activeApiProfile];
+  if (!profile) {
+    profileHint.textContent = "当前档位会自动记忆你修改后的 API 参数。";
+    return;
+  }
+  const keyPreview = profile.apiKey ? `${profile.apiKey.slice(0, 6)}...${profile.apiKey.slice(-4)}` : "未填写";
+  profileHint.textContent = `当前使用 ${profile.name}（${profile.model || "未设置模型"}，${keyPreview}）。修改会自动保存。`;
+}
+
+function selectApiProfile(profileId) {
+  if (!DEFAULT_API_PROFILES[profileId]) return;
+  activeApiProfile = profileId;
+  if (profileSelect) {
+    profileSelect.value = profileId;
+  }
+  saveActiveProfile();
+  applyProfileToForm(profileId);
+  refreshProfileHint();
+  setConnectionState("is-idle", "尚未测试", "已切换档位，请点击“测试连接”。");
 }
 
 function escapeHtml(value) {
@@ -399,6 +535,34 @@ tabs.forEach(tab => {
     panels.forEach(panel => panel.classList.toggle("is-active", panel.dataset.panel === tab.dataset.tab));
   });
 });
+
+apiProfiles = loadApiProfiles();
+activeApiProfile = loadActiveProfile();
+
+if (profileSelect) {
+  profileSelect.value = activeApiProfile;
+  profileSelect.addEventListener("change", () => {
+    selectApiProfile(profileSelect.value);
+  });
+}
+
+if (resetProfileButton) {
+  resetProfileButton.addEventListener("click", () => {
+    apiProfiles[activeApiProfile] = cloneProfile(DEFAULT_API_PROFILES[activeApiProfile]);
+    saveApiProfiles();
+    applyProfileToForm(activeApiProfile);
+    refreshProfileHint();
+    setConnectionState("is-idle", "已重置", "当前档位已恢复默认配置。");
+  });
+}
+
+[fields.apiKey, fields.baseUrl, fields.model].forEach(input => {
+  if (!input) return;
+  input.addEventListener("input", persistCurrentApiFields);
+  input.addEventListener("change", persistCurrentApiFields);
+});
+
+selectApiProfile(activeApiProfile);
 
 if (testConnectionButton) {
   testConnectionButton.addEventListener("click", async () => {
