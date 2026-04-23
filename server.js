@@ -722,6 +722,17 @@ function loadStoredRuns() {
   return runs.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
 }
 
+function loadStoredRunById(runId) {
+  const runJsonPath = path.join(RUNS_DIR, runId, "run.json");
+  if (!fs.existsSync(runJsonPath)) return null;
+  try {
+    const data = JSON.parse(fs.readFileSync(runJsonPath, "utf8"));
+    return data;
+  } catch (error) {
+    return null;
+  }
+}
+
 async function handleCreateRun(req, res) {
   try {
     const payload = await parseBody(req);
@@ -814,11 +825,17 @@ function handleListRuns(res) {
 
 function handleGetRun(req, res, runId) {
   const run = runStore.get(runId);
-  if (!run) {
+  if (run) {
+    sendJson(res, 200, createRunSnapshot(run));
+    return;
+  }
+
+  const persistedRun = loadStoredRunById(runId);
+  if (!persistedRun) {
     sendJson(res, 404, { error: "Run not found." });
     return;
   }
-  sendJson(res, 200, createRunSnapshot(run));
+  sendJson(res, 200, persistedRun);
 }
 
 function handleDeleteRun(res, runId) {

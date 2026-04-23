@@ -80,7 +80,8 @@ function renderInlineMarkdown(text) {
   return escapeHtml(text)
     .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
     .replace(/\*(.+?)\*/g, "<em>$1</em>")
-    .replace(/`(.+?)`/g, "<code>$1</code>");
+    .replace(/`(.+?)`/g, "<code>$1</code>")
+    .replace(/\n/g, "<br>");
 }
 
 function markdownToHtml(markdown) {
@@ -93,7 +94,7 @@ function markdownToHtml(markdown) {
 
   function flushParagraph() {
     if (!paragraph.length) return;
-    blocks.push(`<p>${renderInlineMarkdown(paragraph.join("<br>"))}</p>`);
+    blocks.push(`<p>${renderInlineMarkdown(paragraph.join("\n"))}</p>`);
     paragraph = [];
   }
 

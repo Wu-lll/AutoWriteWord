@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>小说生成工作台</title>
+    <title>小说创作工作台</title>
     <link rel="stylesheet" href="./styles.css">
   </head>
   <body>
@@ -11,20 +11,19 @@
       <section class="hero">
         <div>
           <p class="eyebrow">Novel Studio</p>
-          <h1>把一个故事念头，快速变成可读成稿</h1>
+          <h1>一页完成设定、写文、复盘与导出</h1>
           <p class="lede">
-            面向创作者、配音、剪辑和内容协作者的小说生成工作台。
-            你只需要填入故事设定和接口配置，就能在同一页完成生成、查看提示词、回看历史任务和导出结果。
+            面向创作者、配音与内容团队的小说生成工作台。配置 API 后，即可在同一页面完成创作输入、结果查看、提示词追踪和历史管理。
           </p>
         </div>
         <div class="hero-card">
-          <span class="label">产品特点</span>
-          <strong>生成、追踪、复盘都在一个页面完成</strong>
-          <p>支持快速生成与标准生成，可查看每一步依据，适合反复迭代故事设定。</p>
+          <span class="label">产品能力</span>
+          <strong>从想法到可发布文本，流程可视、结果可追溯</strong>
+          <p>支持快速模式与标准模式，生成过程分阶段展示，便于你持续迭代题材、节奏和人物设定。</p>
           <div class="hero-tags">
             <span>快速出稿</span>
-            <span>过程可见</span>
-            <span>支持导出</span>
+            <span>过程透明</span>
+            <span>多格式导出</span>
           </div>
         </div>
       </section>
@@ -33,7 +32,7 @@
         <section class="panel composer">
           <div class="panel-head">
             <h2>创作输入</h2>
-            <p>先确认模型接口，再补全故事主题、角色和关键意象。</p>
+            <p>先验证 API 连通性，再填写题材、人设和故事梗概。</p>
           </div>
 
           <form id="novel-form" class="form">
@@ -59,9 +58,9 @@
               </div>
               <div id="connection-panel" class="connection-panel is-idle">
                 <strong>连接检测</strong>
-                <p id="connection-detail">这里会显示 API 是否连通、模型是否有响应，以及失败原因。</p>
+                <p id="connection-detail">这里会显示 API 是否连通、模型是否可用，以及失败原因。</p>
               </div>
-              <p class="microcopy">接口配置只用于当前请求，适合本地测试、多人协作和后续部署。</p>
+              <p class="microcopy">API 参数仅用于当前请求，不会写入代码文件。</p>
             </details>
 
             <div class="input-grid">
@@ -89,7 +88,7 @@
 
               <label class="wide">
                 <span>主角设定</span>
-                <input type="text" name="protagonist" placeholder="例如：一个在老城区档案馆值夜班的修复员">
+                <input type="text" name="protagonist" placeholder="例如：一位在旧档案馆值夜班的修复员">
               </label>
 
               <label class="wide">
@@ -104,7 +103,7 @@
 
               <label class="wide">
                 <span>必须出现的情节或意象</span>
-                <input type="text" name="hook" placeholder="例如：雨夜、未拆封却已有回信的旧信、走廊尽头的红灯">
+                <input type="text" name="hook" placeholder="例如：雨夜、未拆封却已有回信的旧信、走廊尽头红灯">
               </label>
 
               <label class="wide">
@@ -155,7 +154,7 @@
           <div class="tabs">
             <button type="button" class="tab is-active" data-tab="story">正文</button>
             <button type="button" class="tab" data-tab="steps">过程</button>
-            <button type="button" class="tab" data-tab="prompts">生成依据</button>
+            <button type="button" class="tab" data-tab="prompts">提示词</button>
           </div>
 
           <section class="tab-panel is-active" data-panel="story">
@@ -175,20 +174,20 @@
       <section class="panel footnotes">
         <div class="panel-head">
           <h2>运行说明</h2>
-          <p>这是给使用者看的说明，不需要理解代码也能直接上手。</p>
+          <p>按以下顺序使用即可：连接检测 -> 生成正文 -> 回看过程 -> 导出结果。</p>
         </div>
         <div class="notes-grid">
           <article>
-            <h3>适合分享</h3>
-            <p>只要后端能部署，这个页面就能通过网址分享给手机、平板或桌面浏览器访问。</p>
+            <h3>步骤 1：连接检测</h3>
+            <p>填写 API Key、Base URL、Model 后，点击“测试连接”，确认接口可用再开始生成。</p>
           </article>
           <article>
-            <h3>适合创作迭代</h3>
-            <p>你可以先快速成稿，再回头检查过程和提示词，逐步把故事磨成适合朗读或改编的视频脚本。</p>
+            <h3>步骤 2：开始生成</h3>
+            <p>填写故事设定并提交，系统会按阶段写作。你可实时查看当前状态和关键摘要。</p>
           </article>
           <article>
-            <h3>过程透明</h3>
-            <p>页面会保留提示词、阶段结果和历史任务，方便复盘“为什么这次写成了这样”。</p>
+            <h3>步骤 3：复盘与导出</h3>
+            <p>在“过程/提示词”中查看细节，在“正文”中切换阅读模式并导出 HTML、PDF、Markdown、TXT。</p>
           </article>
         </div>
       </section>
@@ -197,7 +196,7 @@
         <div class="panel-head">
           <div>
             <h2>历史任务</h2>
-            <p>最近任务会保留在这里，方便回看、导出，或直接删除不需要的记录。</p>
+            <p>最近任务保存在这里，可直接打开、导出或删除。</p>
           </div>
           <button type="button" id="refresh-history-button" class="secondary-button">刷新</button>
         </div>
