@@ -192,6 +192,66 @@ function extractJson(text) {
   return JSON.parse(match[0]);
 }
 
+function extractJsonCandidates(text) {
+  const candidates = [];
+  const raw = String(text || "").trim();
+  if (!raw) return candidates;
+
+  const fenced = raw.match(/```(?:json)?\s*([\s\S]*?)```/i);
+  if (fenced?.[1]) {
+    candidates.push(fenced[1].trim());
+  }
+
+  const block = raw.match(/\{[\s\S]*\}/);
+  if (block?.[0]) {
+    candidates.push(block[0].trim());
+  }
+
+  candidates.push(raw);
+  return [...new Set(candidates)];
+}
+
+function parseJsonLenient(text) {
+  const candidates = extractJsonCandidates(text);
+  for (const candidate of candidates) {
+    try {
+      return JSON.parse(candidate);
+    } catch (error) {
+      // try next
+    }
+  }
+  throw new Error("Model output did not contain JSON.");
+}
+
+async function repairJsonOutput(rawText, apiConfig) {
+  const repairPrompt = [
+    "请把下面内容修复为合法 JSON。",
+    "只输出 JSON 对象，不要输出解释、代码块或其他文本。",
+    "",
+    rawText
+  ].join("\n");
+
+  const repaired = await callChatCompletion({
+    apiKey: apiConfig.apiKey,
+    baseUrl: apiConfig.baseUrl,
+    model: apiConfig.model,
+    messages: [
+      {
+        role: "system",
+        content: "你是 JSON 修复器。必须只输出一个合法 JSON 对象。"
+      },
+      {
+        role: "user",
+        content: repairPrompt
+      }
+    ],
+    temperature: 0,
+    maxTokens: 1800
+  });
+
+  return parseJsonLenient(repaired.text);
+}
+
 function createRunSnapshot(run) {
   return {
     id: run.id,
@@ -570,15 +630,20 @@ async function runStep({ run, step, apiConfig, messages, expectsJson }) {
   saveRun(run);
 
   const started = Date.now();
+  const requestMessages = [
+    { role: "system", content: messages.system },
+    { role: "system", content: messages.developer },
+    ...(expectsJson
+      ? [{ role: "system", content: "必须仅输出 JSON 对象。不要输出解释、标题、代码块。"}]
+      : []),
+    { role: "user", content: messages.user }
+  ];
+
   const result = await callChatCompletion({
     apiKey: apiConfig.apiKey,
     baseUrl: apiConfig.baseUrl,
     model: apiConfig.model,
-    messages: [
-      { role: "system", content: messages.system },
-      { role: "system", content: messages.developer },
-      { role: "user", content: messages.user }
-    ],
+    messages: requestMessages,
     temperature: step.temperature,
     maxTokens: step.maxTokens
   });
@@ -596,7 +661,12 @@ async function runStep({ run, step, apiConfig, messages, expectsJson }) {
   run.usage.totalTokens += step.usage.totalTokens;
 
   if (expectsJson) {
-    step.output.parsed = extractJson(result.text);
+    try {
+      step.output.parsed = parseJsonLenient(result.text);
+    } catch (error) {
+      // One repair pass avoids random provider formatting drift causing full run failure.
+      step.output.parsed = await repairJsonOutput(result.text, apiConfig);
+    }
     step.summary = summarizeParsed(step.output.parsed);
   } else {
     step.summary = result.text.slice(0, 400);
