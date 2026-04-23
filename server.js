@@ -86,6 +86,41 @@ function parseBody(req) {
   });
 }
 
+function parseCookies(req) {
+  const raw = req.headers?.cookie || "";
+  const cookies = {};
+  for (const pair of raw.split(";")) {
+    const [k, ...rest] = pair.trim().split("=");
+    if (!k) continue;
+    cookies[k] = decodeURIComponent(rest.join("=") || "");
+  }
+  return cookies;
+}
+
+function isValidSessionId(value) {
+  return typeof value === "string" && /^[a-f0-9-]{20,80}$/i.test(value);
+}
+
+function getOrCreateSessionId(req, res) {
+  const cookies = parseCookies(req);
+  const existing = cookies["ns_sid"];
+  if (isValidSessionId(existing)) {
+    return existing;
+  }
+
+  const sessionId = crypto.randomUUID();
+  const forwardedProto = String(req.headers["x-forwarded-proto"] || "").toLowerCase();
+  const isHttps = forwardedProto.includes("https");
+  const secure = isHttps ? "; Secure" : "";
+  const cookie = `ns_sid=${encodeURIComponent(sessionId)}; Path=/; HttpOnly; SameSite=Lax; Max-Age=31536000${secure}`;
+  res.setHeader("Set-Cookie", cookie);
+  return sessionId;
+}
+
+function canAccessRun(run, ownerId) {
+  return run && run.ownerId && run.ownerId === ownerId;
+}
+
 function ensureText(value, fallback = "") {
   return typeof value === "string" ? value.trim() : fallback;
 }
@@ -160,6 +195,7 @@ function extractJson(text) {
 function createRunSnapshot(run) {
   return {
     id: run.id,
+    ownerId: run.ownerId,
     status: run.status,
     createdAt: run.createdAt,
     startedAt: run.startedAt,
@@ -665,10 +701,11 @@ function createStep(id, title, temperature, maxTokens) {
   };
 }
 
-function buildRun(input, baseUrl, model) {
+function buildRun(input, baseUrl, model, ownerId) {
   const generationMode = normalizeMode(input.generationMode);
   return {
     id: `run-${crypto.randomUUID()}`,
+    ownerId,
     status: "queued",
     createdAt: new Date().toISOString(),
     startedAt: null,
@@ -733,7 +770,7 @@ function loadStoredRunById(runId) {
   }
 }
 
-async function handleCreateRun(req, res) {
+async function handleCreateRun(req, res, ownerId) {
   try {
     const payload = await parseBody(req);
     const apiKey = ensureText(payload.apiKey);
@@ -759,7 +796,7 @@ async function handleCreateRun(req, res) {
       return;
     }
 
-    const run = buildRun(input, baseUrl, model);
+    const run = buildRun(input, baseUrl, model, ownerId);
     runStore.set(run.id, run);
     saveRun(run);
 
@@ -797,7 +834,7 @@ async function handleValidateConfig(req, res) {
   }
 }
 
-function handleListRuns(res) {
+function handleListRuns(res, ownerId) {
   const inMemory = [...runStore.values()].map(createRunSnapshot);
   const persisted = loadStoredRuns();
   const merged = new Map();
@@ -807,6 +844,7 @@ function handleListRuns(res) {
   }
 
   const list = [...merged.values()]
+    .filter(run => canAccessRun(run, ownerId))
     .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0))
     .slice(0, 20)
     .map(run => ({
@@ -823,27 +861,43 @@ function handleListRuns(res) {
   sendJson(res, 200, { runs: list });
 }
 
-function handleGetRun(req, res, runId) {
+function handleGetRun(req, res, runId, ownerId) {
   const run = runStore.get(runId);
-  if (run) {
+  if (run && canAccessRun(run, ownerId)) {
     sendJson(res, 200, createRunSnapshot(run));
+    return;
+  }
+  if (run && !canAccessRun(run, ownerId)) {
+    sendJson(res, 404, { error: "Run not found." });
     return;
   }
 
   const persistedRun = loadStoredRunById(runId);
-  if (!persistedRun) {
+  if (!persistedRun || !canAccessRun(persistedRun, ownerId)) {
     sendJson(res, 404, { error: "Run not found." });
     return;
   }
   sendJson(res, 200, persistedRun);
 }
 
-function handleDeleteRun(res, runId) {
+function handleDeleteRun(res, runId, ownerId) {
   const persisted = path.join(RUNS_DIR, runId, "run.json");
   const existsInMemory = runStore.has(runId);
   const existsOnDisk = fs.existsSync(persisted);
 
   if (!existsInMemory && !existsOnDisk) {
+    sendJson(res, 404, { error: "Run not found." });
+    return;
+  }
+
+  const persistedRun = existsOnDisk ? loadStoredRunById(runId) : null;
+  if (existsInMemory) {
+    const memoryRun = runStore.get(runId);
+    if (!canAccessRun(memoryRun, ownerId)) {
+      sendJson(res, 404, { error: "Run not found." });
+      return;
+    }
+  } else if (persistedRun && !canAccessRun(persistedRun, ownerId)) {
     sendJson(res, 404, { error: "Run not found." });
     return;
   }
@@ -875,9 +929,9 @@ function handleDeleteRun(res, runId) {
   });
 }
 
-function handleEvents(req, res, runId) {
+function handleEvents(req, res, runId, ownerId) {
   const run = runStore.get(runId);
-  if (!run) {
+  if (!run || !canAccessRun(run, ownerId)) {
     sendJson(res, 404, { error: "Run not found." });
     return;
   }
@@ -915,6 +969,7 @@ function handleAccessInfo(res) {
 
 const server = http.createServer((req, res) => {
   const url = new URL(req.url, `http://${req.headers.host}`);
+  const ownerId = getOrCreateSessionId(req, res);
 
   if (req.method === "GET" && url.pathname === "/api/health") {
     handleHealth(res);
@@ -932,29 +987,29 @@ const server = http.createServer((req, res) => {
   }
 
   if (req.method === "GET" && url.pathname === "/api/runs") {
-    handleListRuns(res);
+    handleListRuns(res, ownerId);
     return;
   }
 
   if (req.method === "POST" && url.pathname === "/api/runs") {
-    handleCreateRun(req, res);
+    handleCreateRun(req, res, ownerId);
     return;
   }
 
   const runMatch = url.pathname.match(/^\/api\/runs\/([^/]+)$/);
   if (req.method === "GET" && runMatch) {
-    handleGetRun(req, res, runMatch[1]);
+    handleGetRun(req, res, runMatch[1], ownerId);
     return;
   }
 
   if (req.method === "DELETE" && runMatch) {
-    handleDeleteRun(res, runMatch[1]);
+    handleDeleteRun(res, runMatch[1], ownerId);
     return;
   }
 
   const eventMatch = url.pathname.match(/^\/api\/runs\/([^/]+)\/events$/);
   if (req.method === "GET" && eventMatch) {
-    handleEvents(req, res, eventMatch[1]);
+    handleEvents(req, res, eventMatch[1], ownerId);
     return;
   }
 
