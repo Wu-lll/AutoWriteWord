@@ -1,9 +1,9 @@
-﻿<!doctype html>
+<!doctype html>
 <html lang="zh-CN">
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>灏忚鍒涗綔宸ヤ綔鍙?/title>
+    <title>小说创作工作台</title>
     <link rel="stylesheet" href="./styles.css">
   </head>
   <body>
@@ -11,18 +11,19 @@
       <section class="hero">
         <div>
           <p class="eyebrow">Novel Studio</p>
-          <h1>涓€椤靛畬鎴愯瀹氥€佸啓鏂囥€佸鐩樹笌瀵煎嚭</h1>
+          <h1>一页完成设定、写文、复盘与导出</h1>
           <p class="lede">
-            闈㈠悜鍒涗綔鑰呫€侀厤闊充笌鍐呭鍥㈤槦鐨勫皬璇寸敓鎴愬伐浣滃彴銆傞厤缃?API 鍚庯紝鍗冲彲鍦ㄥ悓涓€椤甸潰瀹屾垚鍒涗綔杈撳叆銆佺粨鏋滄煡鐪嬨€佹彁绀鸿瘝杩借釜鍜屽巻鍙茬鐞嗐€?          </p>
+            面向创作者、配音与内容团队的小说生成工作台。配置 API 后，即可在同一页面完成创作输入、结果查看、提示词追踪和历史管理。
+          </p>
         </div>
         <div class="hero-card">
-          <span class="label">浜у搧鑳藉姏</span>
-          <strong>浠庢兂娉曞埌鍙彂甯冩枃鏈紝娴佺▼鍙銆佺粨鏋滃彲杩芥函</strong>
-          <p>鏀寔蹇€熸ā寮忎笌鏍囧噯妯″紡锛岀敓鎴愯繃绋嬪垎闃舵灞曠ず锛屼究浜庝綘鎸佺画杩唬棰樻潗銆佽妭濂忓拰浜虹墿璁惧畾銆?/p>
+          <span class="label">产品能力</span>
+          <strong>从想法到可发布文本，流程可视、结果可追溯</strong>
+          <p>支持快速模式与标准模式，生成过程分阶段展示，便于持续迭代题材、节奏和人物设定。</p>
           <div class="hero-tags">
-            <span>蹇€熷嚭绋?/span>
-            <span>杩囩▼閫忔槑</span>
-            <span>澶氭牸寮忓鍑?/span>
+            <span>快速出稿</span>
+            <span>过程透明</span>
+            <span>多格式导出</span>
           </div>
         </div>
       </section>
@@ -30,13 +31,13 @@
       <section class="workspace">
         <section class="panel composer">
           <div class="panel-head">
-            <h2>鍒涗綔杈撳叆</h2>
-            <p>鍏堥獙璇?API 杩為€氭€э紝鍐嶅～鍐欓鏉愩€佷汉璁惧拰鏁呬簨姊楁銆?/p>
+            <h2>创作输入</h2>
+            <p>先验证 API 连通性，再填写题材、人设和故事梗概。</p>
           </div>
 
           <form id="novel-form" class="form">
             <details class="config-card" open>
-              <summary>API 閰嶇疆</summary>
+              <summary>API 配置</summary>
               <div class="profile-row">
                 <label>
                   <span>API 档位</span>
@@ -63,113 +64,113 @@
                 </label>
               </div>
               <div class="config-actions">
-                <button type="button" id="test-connection-button" class="secondary-button">娴嬭瘯杩炴帴</button>
-                <span id="connection-status" class="connection-status">灏氭湭娴嬭瘯</span>
+                <button type="button" id="test-connection-button" class="secondary-button">测试连接</button>
+                <span id="connection-status" class="connection-status">尚未测试</span>
               </div>
               <div id="connection-panel" class="connection-panel is-idle">
-                <strong>杩炴帴妫€娴?/strong>
-                <p id="connection-detail">杩欓噷浼氭樉绀?API 鏄惁杩為€氥€佹ā鍨嬫槸鍚﹀彲鐢紝浠ュ強澶辫触鍘熷洜銆?/p>
+                <strong>连接检测</strong>
+                <p id="connection-detail">这里会显示 API 是否连通、模型是否可用，以及失败原因。</p>
               </div>
               <p id="profile-hint" class="microcopy">当前档位会自动记忆你修改后的 API 参数。</p>
-              <p class="microcopy">API 鍙傛暟浠呯敤浜庡綋鍓嶈姹傦紝涓嶄細鍐欏叆浠ｇ爜鏂囦欢銆?/p>
+              <p class="microcopy">API 参数仅用于当前请求，不会写入代码文件。</p>
             </details>
 
             <div class="input-grid">
               <label>
-                <span>灏忚绫诲瀷</span>
+                <span>小说类型</span>
                 <select name="style">
-                  <option value="suspense">鎮枒</option>
-                  <option value="fantasy">鐜勫够</option>
-                  <option value="romance">瑷€鎯?/option>
+                  <option value="suspense">悬疑</option>
+                  <option value="fantasy">玄幻</option>
+                  <option value="romance">言情</option>
                 </select>
               </label>
 
               <label>
-                <span>鐩爣璇昏€?/span>
-                <input type="text" name="audience" placeholder="渚嬪锛氬枩娆㈣妭濂忕揣銆佸弽杞己鐨勭煭绡囪鑰?>
+                <span>目标读者</span>
+                <input type="text" name="audience" placeholder="例如：喜欢节奏紧、反转强的短篇读者">
               </label>
 
               <label>
-                <span>鐢熸垚妯″紡</span>
+                <span>生成模式</span>
                 <select name="generationMode">
-                  <option value="fast" selected>蹇€熺敓鎴?/option>
-                  <option value="balanced">鏍囧噯鐢熸垚</option>
+                  <option value="fast" selected>快速生成</option>
+                  <option value="balanced">标准生成</option>
                 </select>
               </label>
 
               <label class="wide">
-                <span>涓昏璁惧畾</span>
-                <input type="text" name="protagonist" placeholder="渚嬪锛氫竴浣嶅湪鏃ф。妗堥鍊煎鐝殑淇鍛?>
+                <span>主角设定</span>
+                <input type="text" name="protagonist" placeholder="例如：一位在旧档案馆值夜班的修复员">
               </label>
 
               <label class="wide">
-                <span>鏁呬簨姊楁</span>
+                <span>故事梗概</span>
                 <textarea
                   name="premise"
                   rows="6"
-                  placeholder="渚嬪锛氭瘡鍒板崍澶滐紝灏佸瓨妗ｆ浼氬鍑轰竴椤靛皻鏈彂鐢熺殑妗堜欢璁板綍銆?
+                  placeholder="例如：每到午夜，封存档案会多出一页尚未发生的案件记录。"
                   required
                 ></textarea>
               </label>
 
               <label class="wide">
-                <span>蹇呴』鍑虹幇鐨勬儏鑺傛垨鎰忚薄</span>
-                <input type="text" name="hook" placeholder="渚嬪锛氶洦澶溿€佹湭鎷嗗皝鍗村凡鏈夊洖淇＄殑鏃т俊銆佽蛋寤婂敖澶寸孩鐏?>
+                <span>必须出现的情节或意象</span>
+                <input type="text" name="hook" placeholder="例如：雨夜、未拆封却已有回信的旧信、走廊尽头红灯">
               </label>
 
               <label class="wide">
-                <span>鐩爣瀛楁暟</span>
+                <span>目标字数</span>
                 <input type="range" name="length" min="600" max="6000" step="100" value="1200">
-                <strong id="length-value">1200 瀛?/strong>
+                <strong id="length-value">1200 字</strong>
               </label>
             </div>
 
-            <button id="submit-button" type="submit" class="primary-button">寮€濮嬬敓鎴?/button>
+            <button id="submit-button" type="submit" class="primary-button">开始生成</button>
           </form>
         </section>
 
         <section class="panel results">
           <div class="panel-head">
             <div>
-              <h2>鐢熸垚缁撴灉</h2>
-              <p id="status-text">绛夊緟寮€濮嬨€傛彁浜ゅ悗浼氬睍绀鸿繘搴︺€佹鏂囧拰姣忎竴姝ョ敓鎴愪緷鎹€?/p>
+              <h2>生成结果</h2>
+              <p id="status-text">等待开始。提交后会展示进度、正文和每一步生成依据。</p>
             </div>
-            <span id="status-pill" class="pill">寰呭紑濮?/span>
+            <span id="status-pill" class="pill">待开始</span>
           </div>
 
           <div class="reading-toolbar">
             <label>
-              <span>涓枃瀛椾綋</span>
+              <span>中文字体</span>
               <select id="font-select">
-                <option value="song">瀹嬩綋</option>
-                <option value="hei">榛戜綋</option>
-                <option value="round">鍦嗕綋</option>
-                <option value="kai">妤蜂綋</option>
+                <option value="song">宋体</option>
+                <option value="hei">黑体</option>
+                <option value="round">圆体</option>
+                <option value="kai">楷体</option>
               </select>
             </label>
             <label>
-              <span>闃呰妯″紡</span>
+              <span>阅读模式</span>
               <select id="reading-mode-select">
-                <option value="markdown" selected>Markdown 闃呰妯″紡</option>
-                <option value="word">浠?Word 闃呰妯″紡</option>
+                <option value="markdown" selected>Markdown 阅读模式</option>
+                <option value="word">仿 Word 阅读模式</option>
               </select>
             </label>
             <div class="export-actions">
-              <button type="button" id="export-html-button" class="ghost-button">瀵煎嚭 HTML</button>
-              <button type="button" id="export-pdf-button" class="ghost-button">瀵煎嚭 PDF</button>
-              <button type="button" id="export-md-button" class="ghost-button">瀵煎嚭 Markdown</button>
-              <button type="button" id="export-txt-button" class="ghost-button">瀵煎嚭 TXT</button>
+              <button type="button" id="export-html-button" class="ghost-button">导出 HTML</button>
+              <button type="button" id="export-pdf-button" class="ghost-button">导出 PDF</button>
+              <button type="button" id="export-md-button" class="ghost-button">导出 Markdown</button>
+              <button type="button" id="export-txt-button" class="ghost-button">导出 TXT</button>
             </div>
           </div>
 
           <div class="tabs">
-            <button type="button" class="tab is-active" data-tab="story">姝ｆ枃</button>
-            <button type="button" class="tab" data-tab="steps">杩囩▼</button>
-            <button type="button" class="tab" data-tab="prompts">鎻愮ず璇?/button>
+            <button type="button" class="tab is-active" data-tab="story">正文</button>
+            <button type="button" class="tab" data-tab="steps">过程</button>
+            <button type="button" class="tab" data-tab="prompts">提示词</button>
           </div>
 
           <section class="tab-panel is-active" data-panel="story">
-            <article id="story-box" class="result-box">杩欓噷浼氭樉绀烘渶缁堝皬璇淬€?/article>
+            <article id="story-box" class="result-box">这里会显示最终小说。</article>
           </section>
 
           <section class="tab-panel" data-panel="steps">
@@ -184,21 +185,21 @@
 
       <section class="panel footnotes">
         <div class="panel-head">
-          <h2>杩愯璇存槑</h2>
-          <p>鎸変互涓嬮『搴忎娇鐢ㄥ嵆鍙細杩炴帴妫€娴?-> 鐢熸垚姝ｆ枃 -> 鍥炵湅杩囩▼ -> 瀵煎嚭缁撴灉銆?/p>
+          <h2>运行说明</h2>
+          <p>按以下顺序使用即可：连接检测 -> 生成正文 -> 回看过程 -> 导出结果。</p>
         </div>
         <div class="notes-grid">
           <article>
-            <h3>姝ラ 1锛氳繛鎺ユ娴?/h3>
-            <p>濉啓 API Key銆丅ase URL銆丮odel 鍚庯紝鐐瑰嚮鈥滄祴璇曡繛鎺モ€濓紝纭鎺ュ彛鍙敤鍐嶅紑濮嬬敓鎴愩€?/p>
+            <h3>步骤 1：连接检测</h3>
+            <p>填写 API 参数后，点击“测试连接”，确认接口可用再开始生成。</p>
           </article>
           <article>
-            <h3>姝ラ 2锛氬紑濮嬬敓鎴?/h3>
-            <p>濉啓鏁呬簨璁惧畾骞舵彁浜わ紝绯荤粺浼氭寜闃舵鍐欎綔銆備綘鍙疄鏃舵煡鐪嬪綋鍓嶇姸鎬佸拰鍏抽敭鎽樿銆?/p>
+            <h3>步骤 2：开始生成</h3>
+            <p>填写故事设定并提交，系统会按阶段写作。你可实时查看当前状态和关键摘要。</p>
           </article>
           <article>
-            <h3>姝ラ 3锛氬鐩樹笌瀵煎嚭</h3>
-            <p>鍦ㄢ€滆繃绋?鎻愮ず璇嶁€濅腑鏌ョ湅缁嗚妭锛屽湪鈥滄鏂団€濅腑鍒囨崲闃呰妯″紡骞跺鍑?HTML銆丳DF銆丮arkdown銆乀XT銆?/p>
+            <h3>步骤 3：复盘与导出</h3>
+            <p>在“过程/提示词”中查看细节，在“正文”中切换阅读模式并导出 HTML、PDF、Markdown、TXT。</p>
           </article>
         </div>
       </section>
@@ -206,10 +207,10 @@
       <section class="panel history-panel">
         <div class="panel-head">
           <div>
-            <h2>鍘嗗彶浠诲姟</h2>
-            <p>鏈€杩戜换鍔′繚瀛樺湪杩欓噷锛屽彲鐩存帴鎵撳紑銆佸鍑烘垨鍒犻櫎銆?/p>
+            <h2>历史任务</h2>
+            <p>最近任务保存在这里，可直接打开、导出或删除。</p>
           </div>
-          <button type="button" id="refresh-history-button" class="secondary-button">鍒锋柊</button>
+          <button type="button" id="refresh-history-button" class="secondary-button">刷新</button>
         </div>
         <div id="history-box" class="history-list"></div>
       </section>
@@ -218,4 +219,3 @@
     <script src="./app.js"></script>
   </body>
 </html>
-

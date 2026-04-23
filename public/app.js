@@ -44,10 +44,6 @@ const lengthInput = fields.length;
 const lengthValue = document.getElementById("length-value");
 const query = new URLSearchParams(window.location.search);
 
-let activeRunId = null;
-let activeEventSource = null;
-let latestRun = null;
-
 const readingFonts = {
   song: '"STSong", "SimSun", serif',
   hei: '"Microsoft YaHei", "SimHei", sans-serif',
@@ -78,11 +74,34 @@ const DEFAULT_API_PROFILES = Object.freeze({
   }
 });
 
+let activeRunId = null;
+let activeEventSource = null;
+let latestRun = null;
 let apiProfiles = null;
 let activeApiProfile = "api1";
 
 if (query.get("mobile") === "1") {
   document.documentElement.classList.add("mobile-entry");
+}
+
+function escapeHtml(value) {
+  return String(value)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;");
+}
+
+function setStatus(pill, text) {
+  if (statusPill) statusPill.textContent = pill;
+  if (statusText) statusText.textContent = text;
+}
+
+function setConnectionState(kind, summary, detail) {
+  if (!connectionPanel || !connectionStatus || !connectionDetail) return;
+  connectionPanel.classList.remove("is-idle", "is-loading", "is-success", "is-error");
+  connectionPanel.classList.add(kind);
+  connectionStatus.textContent = summary;
+  connectionDetail.textContent = detail;
 }
 
 function cloneProfile(profile) {
@@ -105,7 +124,6 @@ function loadApiProfiles() {
     if (!raw) return merged;
     const parsed = JSON.parse(raw);
     if (!parsed || typeof parsed !== "object") return merged;
-
     for (const id of Object.keys(DEFAULT_API_PROFILES)) {
       if (!parsed[id] || typeof parsed[id] !== "object") continue;
       merged[id] = {
@@ -115,7 +133,7 @@ function loadApiProfiles() {
       };
     }
   } catch (error) {
-    // ignore storage parse issues
+    // ignore
   }
 
   return merged;
@@ -125,18 +143,16 @@ function saveApiProfiles() {
   try {
     localStorage.setItem(API_PROFILE_STORAGE_KEY, JSON.stringify(apiProfiles));
   } catch (error) {
-    // ignore storage failures
+    // ignore
   }
 }
 
 function loadActiveProfile() {
   try {
     const stored = localStorage.getItem(API_ACTIVE_PROFILE_KEY);
-    if (stored && DEFAULT_API_PROFILES[stored]) {
-      return stored;
-    }
+    if (stored && DEFAULT_API_PROFILES[stored]) return stored;
   } catch (error) {
-    // ignore storage failures
+    // ignore
   }
   return "api1";
 }
@@ -145,7 +161,7 @@ function saveActiveProfile() {
   try {
     localStorage.setItem(API_ACTIVE_PROFILE_KEY, activeApiProfile);
   } catch (error) {
-    // ignore storage failures
+    // ignore
   }
 }
 
@@ -155,6 +171,19 @@ function applyProfileToForm(profileId) {
   if (fields.apiKey) fields.apiKey.value = profile.apiKey || "";
   if (fields.baseUrl) fields.baseUrl.value = profile.baseUrl || "";
   if (fields.model) fields.model.value = profile.model || "";
+}
+
+function refreshProfileHint() {
+  if (!profileHint) return;
+  const profile = apiProfiles?.[activeApiProfile];
+  if (!profile) {
+    profileHint.textContent = "当前档位会自动记忆你修改后的 API 参数。";
+    return;
+  }
+  const keyPreview = profile.apiKey
+    ? `${profile.apiKey.slice(0, 6)}...${profile.apiKey.slice(-4)}`
+    : "未填写";
+  profileHint.textContent = `当前使用 ${profile.name}（${profile.model || "未设置模型"}，${keyPreview}）。修改会自动保存。`;
 }
 
 function persistCurrentApiFields() {
@@ -169,47 +198,14 @@ function persistCurrentApiFields() {
   refreshProfileHint();
 }
 
-function refreshProfileHint() {
-  if (!profileHint) return;
-  const profile = apiProfiles?.[activeApiProfile];
-  if (!profile) {
-    profileHint.textContent = "当前档位会自动记忆你修改后的 API 参数。";
-    return;
-  }
-  const keyPreview = profile.apiKey ? `${profile.apiKey.slice(0, 6)}...${profile.apiKey.slice(-4)}` : "未填写";
-  profileHint.textContent = `当前使用 ${profile.name}（${profile.model || "未设置模型"}，${keyPreview}）。修改会自动保存。`;
-}
-
 function selectApiProfile(profileId) {
   if (!DEFAULT_API_PROFILES[profileId]) return;
   activeApiProfile = profileId;
-  if (profileSelect) {
-    profileSelect.value = profileId;
-  }
+  if (profileSelect) profileSelect.value = profileId;
   saveActiveProfile();
   applyProfileToForm(profileId);
   refreshProfileHint();
   setConnectionState("is-idle", "尚未测试", "已切换档位，请点击“测试连接”。");
-}
-
-function escapeHtml(value) {
-  return String(value)
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;");
-}
-
-function setStatus(pill, text) {
-  if (statusPill) statusPill.textContent = pill;
-  if (statusText) statusText.textContent = text;
-}
-
-function setConnectionState(kind, summary, detail) {
-  if (!connectionPanel || !connectionStatus || !connectionDetail) return;
-  connectionPanel.classList.remove("is-idle", "is-loading", "is-success", "is-error");
-  connectionPanel.classList.add(kind);
-  connectionStatus.textContent = summary;
-  connectionDetail.textContent = detail;
 }
 
 function renderInlineMarkdown(text) {
@@ -242,13 +238,11 @@ function markdownToHtml(markdown) {
 
   for (const rawLine of lines) {
     const line = rawLine.trimEnd();
-
     if (!line.trim()) {
       flushParagraph();
       flushList();
       continue;
     }
-
     if (/^#{1,3}\s+/.test(line)) {
       flushParagraph();
       flushList();
@@ -257,27 +251,23 @@ function markdownToHtml(markdown) {
       blocks.push(`<h${level}>${renderInlineMarkdown(text)}</h${level}>`);
       continue;
     }
-
     if (/^[-*]\s+/.test(line)) {
       flushParagraph();
       listItems.push(line.replace(/^[-*]\s+/, ""));
       continue;
     }
-
     if (/^>\s?/.test(line)) {
       flushParagraph();
       flushList();
       blocks.push(`<blockquote>${renderInlineMarkdown(line.replace(/^>\s?/, ""))}</blockquote>`);
       continue;
     }
-
     if (/^---+$/.test(line)) {
       flushParagraph();
       flushList();
       blocks.push("<hr>");
       continue;
     }
-
     paragraph.push(line);
   }
 
@@ -295,7 +285,7 @@ function renderStory(markdown) {
 
 function renderSteps(steps) {
   if (!stepsBox) return;
-  if (!steps || !steps.length) {
+  if (!steps?.length) {
     stepsBox.innerHTML = "<p class='empty'>还没有阶段结果。</p>";
     return;
   }
@@ -322,7 +312,7 @@ function renderSteps(steps) {
 
 function renderPrompts(steps) {
   if (!promptsBox) return;
-  if (!steps || !steps.length) {
+  if (!steps?.length) {
     promptsBox.innerHTML = "<p class='empty'>生成后这里会显示每一步提示词。</p>";
     return;
   }
@@ -734,7 +724,6 @@ if (exportPdfButton) {
     frame.style.height = "0";
     frame.style.border = "0";
     frame.setAttribute("aria-hidden", "true");
-
     document.body.appendChild(frame);
 
     const cleanup = () => {
@@ -742,7 +731,7 @@ if (exportPdfButton) {
         try {
           frame.remove();
         } catch (error) {
-          // ignore cleanup error
+          // ignore
         }
       }, 1200);
     };
@@ -761,9 +750,7 @@ if (exportPdfButton) {
 
     if ("srcdoc" in frame) {
       frame.srcdoc = html;
-      frame.onload = () => {
-        setTimeout(printFromFrame, 80);
-      };
+      frame.onload = () => setTimeout(printFromFrame, 80);
       return;
     }
 
