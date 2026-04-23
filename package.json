@@ -1,0 +1,12 @@
+{
+  "name": "novel-generator-demo",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Web app for generating short stories with OpenAI-compatible APIs.",
+  "engines": {
+    "node": ">=18.17.0"
+  },
+  "scripts": {
+    "start": "node server.js"
+  }
+}

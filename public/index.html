@@ -1,0 +1,210 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>小说生成工作台</title>
+    <link rel="stylesheet" href="./styles.css">
+  </head>
+  <body>
+    <main class="shell">
+      <section class="hero">
+        <div>
+          <p class="eyebrow">Novel Studio</p>
+          <h1>把一个故事念头，快速变成可读成稿</h1>
+          <p class="lede">
+            面向创作者、配音、剪辑和内容协作者的小说生成工作台。
+            你只需要填入故事设定和接口配置，就能在同一页完成生成、查看提示词、回看历史任务和导出结果。
+          </p>
+        </div>
+        <div class="hero-card">
+          <span class="label">产品特点</span>
+          <strong>生成、追踪、复盘都在一个页面完成</strong>
+          <p>支持快速生成与标准生成，可查看每一步依据，适合反复迭代故事设定。</p>
+          <div class="hero-tags">
+            <span>快速出稿</span>
+            <span>过程可见</span>
+            <span>支持导出</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="workspace">
+        <section class="panel composer">
+          <div class="panel-head">
+            <h2>创作输入</h2>
+            <p>先确认模型接口，再补全故事主题、角色和关键意象。</p>
+          </div>
+
+          <form id="novel-form" class="form">
+            <details class="config-card" open>
+              <summary>API 配置</summary>
+              <div class="config-grid">
+                <label>
+                  <span>API Key</span>
+                  <input type="password" name="apiKey" placeholder="sk-..." autocomplete="off" required>
+                </label>
+                <label>
+                  <span>Base URL</span>
+                  <input type="text" name="baseUrl" value="https://api.openai.com/v1" placeholder="https://api.openai.com/v1">
+                </label>
+                <label>
+                  <span>Model</span>
+                  <input type="text" name="model" value="gpt-4o-mini" placeholder="gpt-4o-mini">
+                </label>
+              </div>
+              <div class="config-actions">
+                <button type="button" id="test-connection-button" class="secondary-button">测试连接</button>
+                <span id="connection-status" class="connection-status">尚未测试</span>
+              </div>
+              <div id="connection-panel" class="connection-panel is-idle">
+                <strong>连接检测</strong>
+                <p id="connection-detail">这里会显示 API 是否连通、模型是否有响应，以及失败原因。</p>
+              </div>
+              <p class="microcopy">接口配置只用于当前请求，适合本地测试、多人协作和后续部署。</p>
+            </details>
+
+            <div class="input-grid">
+              <label>
+                <span>小说类型</span>
+                <select name="style">
+                  <option value="suspense">悬疑</option>
+                  <option value="fantasy">玄幻</option>
+                  <option value="romance">言情</option>
+                </select>
+              </label>
+
+              <label>
+                <span>目标读者</span>
+                <input type="text" name="audience" placeholder="例如：喜欢节奏紧、反转强的短篇读者">
+              </label>
+
+              <label>
+                <span>生成模式</span>
+                <select name="generationMode">
+                  <option value="fast" selected>快速生成</option>
+                  <option value="balanced">标准生成</option>
+                </select>
+              </label>
+
+              <label class="wide">
+                <span>主角设定</span>
+                <input type="text" name="protagonist" placeholder="例如：一个在老城区档案馆值夜班的修复员">
+              </label>
+
+              <label class="wide">
+                <span>故事梗概</span>
+                <textarea
+                  name="premise"
+                  rows="6"
+                  placeholder="例如：每到午夜，封存档案会多出一页尚未发生的案件记录。"
+                  required
+                ></textarea>
+              </label>
+
+              <label class="wide">
+                <span>必须出现的情节或意象</span>
+                <input type="text" name="hook" placeholder="例如：雨夜、未拆封却已有回信的旧信、走廊尽头的红灯">
+              </label>
+
+              <label class="wide">
+                <span>目标字数</span>
+                <input type="range" name="length" min="600" max="6000" step="100" value="1200">
+                <strong id="length-value">1200 字</strong>
+              </label>
+            </div>
+
+            <button id="submit-button" type="submit" class="primary-button">开始生成</button>
+          </form>
+        </section>
+
+        <section class="panel results">
+          <div class="panel-head">
+            <div>
+              <h2>生成结果</h2>
+              <p id="status-text">等待开始。提交后会展示进度、正文和每一步生成依据。</p>
+            </div>
+            <span id="status-pill" class="pill">待开始</span>
+          </div>
+
+          <div class="reading-toolbar">
+            <label>
+              <span>中文字体</span>
+              <select id="font-select">
+                <option value="song">宋体</option>
+                <option value="hei">黑体</option>
+                <option value="round">圆体</option>
+                <option value="kai">楷体</option>
+              </select>
+            </label>
+            <label>
+              <span>阅读模式</span>
+              <select id="reading-mode-select">
+                <option value="markdown" selected>Markdown 阅读模式</option>
+                <option value="word">仿 Word 阅读模式</option>
+              </select>
+            </label>
+            <div class="export-actions">
+              <button type="button" id="export-html-button" class="ghost-button">导出 HTML</button>
+              <button type="button" id="export-pdf-button" class="ghost-button">导出 PDF</button>
+              <button type="button" id="export-md-button" class="ghost-button">导出 Markdown</button>
+              <button type="button" id="export-txt-button" class="ghost-button">导出 TXT</button>
+            </div>
+          </div>
+
+          <div class="tabs">
+            <button type="button" class="tab is-active" data-tab="story">正文</button>
+            <button type="button" class="tab" data-tab="steps">过程</button>
+            <button type="button" class="tab" data-tab="prompts">生成依据</button>
+          </div>
+
+          <section class="tab-panel is-active" data-panel="story">
+            <article id="story-box" class="result-box">这里会显示最终小说。</article>
+          </section>
+
+          <section class="tab-panel" data-panel="steps">
+            <div id="steps-box" class="step-list"></div>
+          </section>
+
+          <section class="tab-panel" data-panel="prompts">
+            <div id="prompts-box" class="prompt-list"></div>
+          </section>
+        </section>
+      </section>
+
+      <section class="panel footnotes">
+        <div class="panel-head">
+          <h2>运行说明</h2>
+          <p>这是给使用者看的说明，不需要理解代码也能直接上手。</p>
+        </div>
+        <div class="notes-grid">
+          <article>
+            <h3>适合分享</h3>
+            <p>只要后端能部署，这个页面就能通过网址分享给手机、平板或桌面浏览器访问。</p>
+          </article>
+          <article>
+            <h3>适合创作迭代</h3>
+            <p>你可以先快速成稿，再回头检查过程和提示词，逐步把故事磨成适合朗读或改编的视频脚本。</p>
+          </article>
+          <article>
+            <h3>过程透明</h3>
+            <p>页面会保留提示词、阶段结果和历史任务，方便复盘“为什么这次写成了这样”。</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="panel history-panel">
+        <div class="panel-head">
+          <div>
+            <h2>历史任务</h2>
+            <p>最近任务会保留在这里，方便回看、导出，或直接删除不需要的记录。</p>
+          </div>
+          <button type="button" id="refresh-history-button" class="secondary-button">刷新</button>
+        </div>
+        <div id="history-box" class="history-list"></div>
+      </section>
+    </main>
+
+    <script src="./app.js"></script>
+  </body>
+</html>
