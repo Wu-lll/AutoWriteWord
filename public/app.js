@@ -561,16 +561,57 @@ if (exportPdfButton) {
     if (!markdown) return;
     const bodyHtml = `<article class="story-doc">${markdownToHtml(markdown)}</article>`;
     const html = buildExportHtml(buildExportBaseName(), bodyHtml);
-    const win = window.open("", "_blank", "noopener,noreferrer");
-    if (!win) {
-      setStatus("失败", "浏览器拦截了打印窗口，请允许弹窗后重试。");
+
+    const frame = document.createElement("iframe");
+    frame.style.position = "fixed";
+    frame.style.right = "0";
+    frame.style.bottom = "0";
+    frame.style.width = "0";
+    frame.style.height = "0";
+    frame.style.border = "0";
+    frame.setAttribute("aria-hidden", "true");
+
+    document.body.appendChild(frame);
+
+    const cleanup = () => {
+      setTimeout(() => {
+        try {
+          frame.remove();
+        } catch (error) {
+          // ignore cleanup error
+        }
+      }, 1200);
+    };
+
+    const printFromFrame = () => {
+      const targetWindow = frame.contentWindow;
+      if (!targetWindow) {
+        setStatus("失败", "当前浏览器不支持直接打印，请改用导出 HTML。");
+        cleanup();
+        return;
+      }
+      targetWindow.focus();
+      targetWindow.print();
+      cleanup();
+    };
+
+    if ("srcdoc" in frame) {
+      frame.srcdoc = html;
+      frame.onload = () => {
+        setTimeout(printFromFrame, 80);
+      };
       return;
     }
-    win.document.open();
-    win.document.write(html);
-    win.document.close();
-    win.focus();
-    setTimeout(() => win.print(), 250);
+
+    const blob = new Blob([html], { type: "text/html;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    frame.onload = () => {
+      setTimeout(() => {
+        printFromFrame();
+        URL.revokeObjectURL(url);
+      }, 80);
+    };
+    frame.src = url;
   });
 }
 
