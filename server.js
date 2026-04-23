@@ -1,4 +1,4 @@
-const http = require("http");
+﻿const http = require("http");
 const fs = require("fs");
 const path = require("path");
 const crypto = require("crypto");
@@ -152,13 +152,13 @@ function normalizeBaseUrl(value) {
 function summarizeParsed(parsed) {
   if (!parsed || typeof parsed !== "object") return "";
   if (Array.isArray(parsed.characters)) {
-    return parsed.characters.map(character => `${character.name}：${character.arc}`).join("\n");
+    return parsed.characters.map(character => `${character.name}锛?{character.arc}`).join("\n");
   }
   if (Array.isArray(parsed.scenes)) {
-    return parsed.scenes.map(scene => `${scene.title}：${scene.purpose}`).join("\n");
+    return parsed.scenes.map(scene => `${scene.title}锛?{scene.purpose}`).join("\n");
   }
   if (Array.isArray(parsed.acts)) {
-    return parsed.acts.map(act => `${act.label || act.id}：${act.summary || act.goal || ""}`).join("\n");
+    return parsed.acts.map(act => `${act.label || act.id}锛?{act.summary || act.goal || ""}`).join("\n");
   }
   return Object.entries(parsed)
     .slice(0, 8)
@@ -242,39 +242,100 @@ function pushEvent(runId, type, payload) {
   }
 }
 
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+function normalizeGenerationMaxTokens(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return 1200;
+  return Math.max(256, Math.min(3200, Math.round(n)));
+}
+
+function shouldRetryStatus(status) {
+  return status === 408 || status === 409 || status === 429 || status === 500 || status === 502 || status === 503 || status === 504 || status === 524;
+}
+
 async function callChatCompletion({ apiKey, baseUrl, model, messages, temperature, maxTokens }) {
-  const response = await fetch(`${baseUrl}/chat/completions`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${apiKey}`
-    },
-    body: JSON.stringify({
-      model,
-      messages,
-      temperature,
-      max_tokens: maxTokens
-    })
-  });
+  const retries = 2;
+  const timeoutMs = 65000;
+  const cappedTokens = normalizeGenerationMaxTokens(maxTokens);
+  let lastError = null;
 
-  const text = await response.text();
-  let json;
+  for (let attempt = 0; attempt <= retries; attempt += 1) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      const response = await fetch(`${baseUrl}/chat/completions`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${apiKey}`
+        },
+        signal: controller.signal,
+        body: JSON.stringify({
+          model,
+          messages,
+          temperature,
+          max_tokens: cappedTokens
+        })
+      });
 
-  try {
-    json = text ? JSON.parse(text) : {};
-  } catch (error) {
-    throw new Error(`Upstream did not return JSON.\n${text}`);
+      const text = await response.text();
+      let json = null;
+      try {
+        json = text ? JSON.parse(text) : {};
+      } catch (error) {
+        json = null;
+      }
+
+      if (!response.ok) {
+        const detail = json?.error?.message || text || response.statusText;
+        if (attempt < retries && shouldRetryStatus(response.status)) {
+          await sleep(800 * (attempt + 1));
+          continue;
+        }
+        if (String(text).includes("Error code 524")) {
+          throw new Error("Upstream timeout (Cloudflare 524): 模型响应超时，请切换更稳定的 API 或降低字数后重试。");
+        }
+        throw new Error(`Upstream API error (${response.status}): ${detail}`);
+      }
+
+      if (!json) {
+        if (attempt < retries) {
+          await sleep(800 * (attempt + 1));
+          continue;
+        }
+        if (String(text).includes("Error code 524")) {
+          throw new Error("Upstream timeout (Cloudflare 524): 上游返回超时页面，未返回 JSON。");
+        }
+        throw new Error(`Upstream did not return JSON.\n${text}`);
+      }
+
+      return {
+        text: extractAssistantText(json),
+        usage: json?.usage || {}
+      };
+    } catch (error) {
+      lastError = error;
+      if (error.name === "AbortError") {
+        if (attempt < retries) {
+          await sleep(800 * (attempt + 1));
+          continue;
+        }
+        throw new Error("Upstream timeout: 单次请求超时，请重试或降低目标字数。");
+      }
+      if (attempt < retries) {
+        await sleep(800 * (attempt + 1));
+        continue;
+      }
+      throw error;
+    } finally {
+      clearTimeout(timer);
+    }
   }
 
-  if (!response.ok) {
-    const detail = json?.error?.message || text || response.statusText;
-    throw new Error(`Upstream API error (${response.status}): ${detail}`);
-  }
-
-  return {
-    text: extractAssistantText(json),
-    usage: json?.usage || {}
-  };
+  throw lastError || new Error("Upstream request failed.");
 }
 
 async function validateApiConfig({ apiKey, baseUrl, model }) {
@@ -333,16 +394,14 @@ async function validateApiConfig({ apiKey, baseUrl, model }) {
 function buildStructureMessages(input) {
   const system = [
     "你是中文短篇小说策划助手。",
-    "你的任务是生成可执行、可续写的结构化创作材料。",
-    "严格遵守输入约束，不新增用户未允许的世界观设定。",
-    "先输出 JSON，再给 5 条以内简短说明。"
+    "先输出 JSON，再给简短说明。",
+    "不得直接输出正文。"
   ].join("\n");
 
   const developer = [
     "当前阶段：结构设计。",
-    "必须输出字段：theme, tone, narrative_pov, core_conflict, opening_hook, acts, ending_type, must_keep。",
-    "acts 必须包含 opening, development, climax, resolution 四段。",
-    "不得生成正文段落，不得写大段对话。"
+    "必须输出字段：theme, tone, narrative_pov, core_conflict, acts, ending_type, must_keep。",
+    "acts 至少含 opening, development, climax, resolution。"
   ].join("\n");
 
   const user = JSON.stringify(
@@ -364,16 +423,13 @@ function buildStructureMessages(input) {
 function buildCharactersMessages(input, structure) {
   const system = [
     "你是中文短篇小说人物设计助手。",
-    "你需要基于既有结构补全人物动机、秘密、关系和人物弧线。",
-    "保持人物可信，不要脸谱化。",
     "先输出 JSON，再给简短说明。"
   ].join("\n");
 
   const developer = [
     "当前阶段：人物设计。",
-    "不能推翻结构设定。",
-    "必须输出 characters 数组，至少 3 个角色。",
-    "每个人必须有 name, role, public_face, true_motive, fear, secret, relationship_net, arc, voice_style。"
+    "必须输出 characters 数组，至少 3 人。",
+    "每个角色至少包含 name, role, true_motive, fear, secret, arc, voice_style。"
   ].join("\n");
 
   const user = [
@@ -400,15 +456,12 @@ function buildCharactersMessages(input, structure) {
 function buildBlueprintMessages(input) {
   const system = [
     "你是中文短篇小说快写助手。",
-    "你的任务是在一步内产出可直接用于写正文的创作蓝图。",
-    "先输出 JSON，再给 3 条以内简短说明。"
+    "先输出 JSON，再给简短说明。"
   ].join("\n");
 
   const developer = [
     "当前阶段：快速蓝图。",
-    "必须同时输出结构、人物和场景信息。",
-    "JSON 须包含 theme, tone, narrative_pov, core_conflict, acts, characters, scenes, must_keep。",
-    "characters 至少 3 个，scenes 控制在 4 到 6 个。"
+    "必须输出字段：theme, tone, narrative_pov, core_conflict, acts, characters, scenes, must_keep。"
   ].join("\n");
 
   const user = JSON.stringify(
@@ -418,8 +471,7 @@ function buildBlueprintMessages(input) {
       protagonist: input.protagonist,
       premise: input.premise,
       hook: input.hook,
-      length: input.length,
-      target: "以更短等待时间完成可用短篇"
+      length: input.length
     },
     null,
     2
@@ -431,15 +483,13 @@ function buildBlueprintMessages(input) {
 function buildScenesMessages(input, structure, characters) {
   const system = [
     "你是中文短篇小说场景设计助手。",
-    "你的任务是把结构和人物转换成可直接用于写正文的场景清单。",
     "先输出 JSON，再给简短说明。"
   ].join("\n");
 
   const developer = [
     "当前阶段：场景设计。",
-    "不能推翻结构与人物设定。",
-    "必须输出 scenes 数组，每场必须有 id, title, purpose, location, participating_characters, conflict, reveal, emotion_shift, key_image, target_words。",
-    "场景数控制在 5 到 8 个，总字数预算接近目标字数。"
+    "必须输出 scenes 数组。",
+    "每个场景至少包含 id, title, purpose, location, participating_characters, conflict, reveal, emotion_shift, key_image, target_words。"
   ].join("\n");
 
   const user = [
@@ -459,16 +509,12 @@ function buildScenesMessages(input, structure, characters) {
 function buildDraftMessages(input, structure, characters, scenes) {
   const system = [
     "你是中文短篇小说写作助手。",
-    "你的任务是把结构、人物和场景表整合为完整小说。",
-    "保持节奏、画面感与风格一致性。"
+    "输出 Markdown 正文，先标题后正文。"
   ].join("\n");
 
   const developer = [
     "当前阶段：正文生成。",
-    "输出 Markdown。",
-    "先给标题，再给正文。",
-    "必须覆盖全部关键场景，但允许自然过渡。",
-    "不要再输出 JSON。"
+    "必须覆盖关键场景，不要输出 JSON。"
   ].join("\n");
 
   const user = [
@@ -482,7 +528,7 @@ function buildDraftMessages(input, structure, characters, scenes) {
     "人物：",
     JSON.stringify(characters, null, 2),
     "",
-    "场景表：",
+    "场景：",
     JSON.stringify(scenes, null, 2)
   ]
     .filter(Boolean)
@@ -494,15 +540,12 @@ function buildDraftMessages(input, structure, characters, scenes) {
 function buildFastDraftMessages(input, blueprint) {
   const system = [
     "你是中文短篇小说写作助手。",
-    "你的任务是根据创作蓝图快速写成完整、可读、成稿度高的短篇小说。"
+    "根据蓝图快速输出成稿，Markdown 格式。"
   ].join("\n");
 
   const developer = [
     "当前阶段：快速正文生成。",
-    "输出 Markdown。",
-    "先给标题，再给正文。",
-    "必须覆盖蓝图中的关键人物与关键场景。",
-    "不要输出 JSON，不要解释过程。"
+    "先标题后正文，不要输出 JSON。"
   ].join("\n");
 
   const user = [
@@ -727,13 +770,13 @@ function buildRun(input, baseUrl, model, ownerId) {
       generationMode === "fast"
         ? [
             createStep("blueprint", "快速蓝图", 0.3, 1400),
-            createStep("draft", "快速正文", 0.6, Math.max(1400, Math.round(input.length * 2.1)))
+            createStep("draft", "快速正文", 0.6, normalizeGenerationMaxTokens(Math.max(1400, Math.round(input.length * 2.1))))
           ]
         : [
             createStep("structure", "结构设计", 0.3, 1200),
             createStep("characters", "人物设计", 0.4, 1500),
             createStep("scenes", "场景设计", 0.3, 1700),
-            createStep("draft", "正文生成", 0.6, Math.max(1800, Math.round(input.length * 2.3)))
+            createStep("draft", "正文生成", 0.6, normalizeGenerationMaxTokens(Math.max(1800, Math.round(input.length * 2.3))))
           ]
   };
 }
@@ -905,7 +948,7 @@ function handleDeleteRun(res, runId, ownerId) {
   const liveRun = runStore.get(runId);
   if (liveRun && (liveRun.status === "queued" || liveRun.status === "running")) {
     sendJson(res, 409, {
-      error: "运行中任务不能删除，请等待完成。当前版本暂不支持取消。"
+      error: "运行中的任务不能删除，请等待完成。当前版本暂不支持取消。"
     });
     return;
   }
@@ -1040,3 +1083,4 @@ server.listen(PORT, HOST, () => {
     console.log("LAN: no IPv4 address detected.");
   }
 });
+
